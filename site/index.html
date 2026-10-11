@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#1f6b4a" />
+    <meta name="description" content="用 Gemini Live 原生語音練習英語口說。介面是繁體中文，金鑰只存在你的裝置。" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="口說練習" />
+    <title>英語口說練習</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+    <link rel="stylesheet" href="./css/app.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="top">
+        <p class="eyebrow">Speak</p>
+        <h1 id="page-title">今日練習</h1>
+      </header>
+      <p id="banner" class="banner" role="alert" hidden></p>
+
+      <section id="view-key" class="view" data-view="key">
+        <p class="lead">
+          這個頁面沒有後端。請貼上你自己的 Gemini API 金鑰。金鑰只寫進這台裝置的 localStorage，不會被放進網站檔案，也不會傳到我們的伺服器。
+        </p>
+        <form id="key-form" class="card stack">
+          <label for="api-key">Gemini API 金鑰</label>
+          <div class="key-row">
+            <input
+              id="api-key"
+              name="apiKey"
+              type="password"
+              autocomplete="off"
+              autocapitalize="off"
+              autocorrect="off"
+              spellcheck="false"
+              placeholder="貼上金鑰"
+              required
+            />
+            <button type="button" id="toggle-key-vis" class="ghost">顯示</button>
+          </div>
+          <p id="key-error" class="form-error" role="alert"></p>
+          <button type="submit" id="save-key" class="primary">儲存並開始</button>
+        </form>
+        <p class="fine">
+          到
+          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>
+          建立金鑰。免費層的對話內容可能會被 Google 用來改善產品。
+        </p>
+      </section>
+
+      <section id="view-home" class="view" data-view="home">
+        <article class="card topic-card">
+          <p id="topic-kicker" class="kicker">今日建議</p>
+          <h2 id="topic-title">主題</h2>
+          <p id="topic-title-en" class="en-title"></p>
+          <p id="topic-scenario"></p>
+          <h3>可以試的三句</h3>
+          <ol id="phrase-list" class="phrases"></ol>
+        </article>
+        <div class="row">
+          <button type="button" id="reroll-btn" class="ghost">換一個主題</button>
+          <button type="button" id="custom-toggle" class="ghost">自訂主題</button>
+        </div>
+        <div id="custom-box" class="card stack" hidden>
+          <label for="custom-input">自訂主題</label>
+          <textarea id="custom-input" maxlength="200" placeholder="例如：向客戶說明茶葉的產季"></textarea>
+          <div class="row">
+            <button type="button" id="custom-save" class="primary">使用這個主題</button>
+            <button type="button" id="custom-clear" class="ghost">恢復今日主題</button>
+          </div>
+        </div>
+        <fieldset class="card">
+          <legend>難度</legend>
+          <div id="difficulty-group" class="segment" role="radiogroup" aria-label="難度">
+            <button type="button" data-difficulty="beginner" aria-pressed="true">初級</button>
+            <button type="button" data-difficulty="intermediate" aria-pressed="false">中級</button>
+            <button type="button" data-difficulty="advanced" aria-pressed="false">進階</button>
+          </div>
+          <p id="difficulty-help" class="fine">初級用短句、一次只問一個問題。</p>
+        </fieldset>
+        <fieldset class="card">
+          <legend>說話方式</legend>
+          <div id="mode-group" class="segment" role="radiogroup" aria-label="說話方式">
+            <button type="button" data-mode="tap" aria-pressed="true">點按說話</button>
+            <button type="button" data-mode="handsfree" aria-pressed="false">免持</button>
+          </div>
+          <p id="mode-help" class="fine"></p>
+        </fieldset>
+        <button type="button" id="start-btn" class="primary xl">開始練習</button>
+        <p class="fine">對方會先用英語開口。聲音直接送給 Gemini，中間沒有另做語音轉文字。</p>
+      </section>
+
+      <section id="view-session" class="view" data-view="session" data-status="connecting">
+        <p id="session-kicker" class="kicker"></p>
+        <h2 id="session-topic"></h2>
+        <p id="session-clock" class="clock">00:00</p>
+        <p id="session-status" class="status" role="status" aria-live="polite">正在連線…</p>
+        <button type="button" id="talk-btn" class="talk" aria-pressed="false" disabled>
+          <span id="talk-label">連線中</span>
+        </button>
+        <p id="rec-timer" class="rec-timer"></p>
+        <p id="talk-hint" class="fine"></p>
+        <button type="button" id="session-mode-btn" class="ghost">切換模式</button>
+        <details id="transcript-panel">
+          <summary>逐字稿（即時，若 API 有提供）</summary>
+          <div id="transcript" class="transcript"></div>
+        </details>
+        <p class="fine">連線大約每 10 分鐘會換一次，對話會盡量接續。要回饋時按結束。</p>
+        <button type="button" id="end-btn" class="danger">結束</button>
+      </section>
+
+      <section id="view-feedback" class="view" data-view="feedback">
+        <p id="feedback-status" class="fine" role="status"></p>
+        <div id="feedback-root" class="stack"></div>
+        <div class="row">
+          <button type="button" id="retry-feedback" class="ghost" hidden>重新產生回饋</button>
+          <button type="button" id="practice-again" class="primary">再練一次</button>
+        </div>
+      </section>
+
+      <section id="view-history" class="view" data-view="history">
+        <div id="history-list" class="stack"></div>
+      </section>
+
+      <section id="view-settings" class="view" data-view="settings">
+        <article class="card stack">
+          <h2>API 金鑰</h2>
+          <p>目前：<strong id="settings-key-mask">尚未儲存</strong></p>
+          <p class="fine">金鑰只存在這台裝置的 localStorage。清除或更換不會影響別的手機。</p>
+          <label for="settings-key-input">更換金鑰</label>
+          <input id="settings-key-input" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" />
+          <button type="button" id="settings-save-key" class="primary">儲存新金鑰</button>
+          <p id="settings-key-error" class="form-error" role="alert"></p>
+          <button type="button" id="clear-key" class="danger">清除金鑰</button>
+        </article>
+        <article class="card stack">
+          <h2>練習紀錄</h2>
+          <button type="button" id="clear-history" class="ghost">清除練習紀錄</button>
+        </article>
+        <article class="card stack limits">
+          <h2>使用的模型</h2>
+          <p>語音對話使用 <strong id="model-name">gemini-3.8-live</strong>。這是官方文件裡，免費層可用的預設原生語音模型。</p>
+          <ul>
+            <li>定價頁把這個模型的輸入與輸出標成免費。固定的每分鐘次數沒有公開，請看 AI Studio 裡你的專案額度。</li>
+            <li>純語音若不壓縮大約 15 分鐘；單條 WebSocket 大約 10 分鐘。本頁有開內容壓縮與斷線續接。</li>
+            <li>結束後的文字回饋改問 gemini-3.8-flash，因為 Live 模型只回傳語音。</li>
+            <li>免費層的內容可能被 Google 用來改善產品。</li>
+          </ul>
+          <p class="fine">
+            <a href="https://ai.google.dev/gemini-api/docs/models/gemini-3.8-live" target="_blank" rel="noopener noreferrer">模型說明</a>
+            ·
+            <a href="https://ai.google.dev/gemini-api/docs/pricing" target="_blank" rel="noopener noreferrer">定價</a>
+            ·
+            <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">建立金鑰</a>
+          </p>
+        </article>
+      </section>
+    </div>
+
+    <nav class="tabbar" id="tabbar" aria-label="主要">
+      <button type="button" id="tab-home" data-nav="home">練習</button>
+      <button type="button" id="tab-history" data-nav="history">紀錄</button>
+      <button type="button" id="tab-settings" data-nav="settings">設定</button>
+    </nav>
+    <noscript><p>這個練習頁需要 JavaScript。</p></noscript>
+    <script type="module" src="./js/app.js"></script>
+  </body>
+</html>
